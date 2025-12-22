@@ -172,13 +172,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-# JWT settings
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "BLACKLIST_AFTER_ROTATION": True,
-}
-
 # Email settings
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 
@@ -191,3 +184,10 @@ EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS") == "True"
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL") == "True"
 
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
+
+# JWT settings
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "BLACKLIST_AFTER_ROTATION": True,
+}

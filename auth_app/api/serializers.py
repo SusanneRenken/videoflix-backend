@@ -1,5 +1,7 @@
-from rest_framework import serializers
 from django.contrib.auth.models import User
+
+from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
@@ -20,12 +22,14 @@ class RegistrationSerializer(serializers.ModelSerializer):
     def validate_confirmed_password(self, value):
         password = self.initial_data.get('password')
         if password and value and password != value:
-            raise serializers.ValidationError('Please check your entries and try again.')
+            raise serializers.ValidationError(
+                'Please check your entries and try again.')
         return value
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError('Please check your entries and try again.')
+            raise serializers.ValidationError(
+                'Please check your entries and try again.')
         return value
 
     def create(self, validated_data):
@@ -43,3 +47,38 @@ class RegistrationSerializer(serializers.ModelSerializer):
         user.save()
 
         return user
+
+
+class LoginSerializer(TokenObtainPairSerializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        email = attrs.get("email")
+        password = attrs.get("password")
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                "Invalid email or password."
+            )
+        
+        if not user.check_password(password):
+            raise serializers.ValidationError(
+                "Invalid email or password."
+            )
+        
+        if user.is_active == False:
+            raise serializers.ValidationError(
+                "Account is not activated."
+            )
+
+        data = super().validate({"username": user.username, "password": password})
+
+        data["user"] = {
+            "id": user.id,
+            "username": user.username,
+        }
+
+        return data
