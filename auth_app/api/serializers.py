@@ -53,6 +53,12 @@ class LoginSerializer(TokenObtainPairSerializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        if 'username' in self.fields:
+            self.fields.pop('username')
+
     def validate(self, attrs):
         email = attrs.get("email")
         password = attrs.get("password")
@@ -63,18 +69,21 @@ class LoginSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError(
                 "Invalid email or password."
             )
-        
+
         if not user.check_password(password):
             raise serializers.ValidationError(
                 "Invalid email or password."
             )
-        
-        if user.is_active == False:
+
+        if not user.is_active:
             raise serializers.ValidationError(
                 "Account is not activated."
             )
 
-        data = super().validate({"username": user.username, "password": password})
+        data = super().validate({
+            "username": user.username,
+            "password": password,
+        })
 
         data["user"] = {
             "id": user.id,
@@ -82,3 +91,21 @@ class LoginSerializer(TokenObtainPairSerializer):
         }
 
         return data
+
+
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class ConfirmPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+    
+    def validate(self, attrs):
+        new_password = attrs.get("new_password")
+        confirm_password = attrs.get("confirm_password")
+
+        if new_password != confirm_password:
+            raise serializers.ValidationError(
+                "Please check your entries and try again."
+            )
+        return attrs

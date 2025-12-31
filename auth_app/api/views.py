@@ -7,8 +7,9 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 
-from .serializers import RegistrationSerializer, LoginSerializer
+from .serializers import RegistrationSerializer, LoginSerializer, PasswordResetSerializer, ConfirmPasswordSerializer
 from auth_app.utils.email_activation import send_activation_email, activate_user
+from auth_app.utils.reset_password import send_reset_email, reset_user_password
 
 
 class RegistrationView(APIView):
@@ -66,7 +67,6 @@ class LoginView(TokenObtainPairView):
         access = response.data.get("access")
         user_data = response.data.get("user")
 
-        # Store tokens in HttpOnly cookies. For local DEBUG allow insecure cookies.
         secure_flag = not getattr(settings, "DEBUG", False)
 
         response.set_cookie(
@@ -158,3 +158,43 @@ class RefreshTokenView(TokenRefreshView):
         )
 
         return response
+
+
+class PasswordResetView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+
+        serializer = PasswordResetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+
+        send_reset_email(email)
+
+        return Response(
+            {"detail": "An email has been sent to reset your password."},
+            status=status.HTTP_200_OK
+        )
+
+
+class ConfirmPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, uidb64, token):
+
+        serializer = ConfirmPasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_password = serializer.validated_data["new_password"]
+
+        user = reset_user_password(uidb64, token, new_password)
+
+        if user is not None:
+            return Response(
+                {"detail": "Password has been reset successfully."},
+                status=status.HTTP_200_OK
+            )
+        else:
+            return Response(
+                {"error": "Password reset failed. Please try again."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
