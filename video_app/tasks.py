@@ -2,6 +2,7 @@ from django.conf import settings
 from pathlib import Path
 from .models import Video
 import subprocess
+import shutil
 
 MEDIA_ROOT = Path(settings.MEDIA_ROOT)
 
@@ -13,7 +14,11 @@ def convert_video(video_id):
 
     prepare_directories(video)
     move_original(video)
-    convert_original_to_variants(video)
+
+    success = convert_original_to_variants(video)
+    if not success:
+        return
+
     create_thumbnail(video)
 
     video.status = 'ready'
@@ -40,20 +45,19 @@ def move_original(video):
     target_path = target_dir / source_path.name
 
     shutil.copy2(source_path, target_path)
-
-    # 2. Originaldatei löschen
     source_path.unlink()
 
-    # 3. Django-Pfad aktualisieren
     video.original_file.name = f"videos/video_{video.id}/original/{source_path.name}"
     video.save(update_fields=["original_file"])
 
 
 
 def convert_original_to_variants(video):
-    convert_resolution(video, "480")
-    convert_resolution(video, "720")
-    convert_resolution(video, "1080")
+    for resolution in ["480", "720", "1080"]:
+        success = convert_resolution(video, resolution)
+        if not success:
+            return False
+    return True
 
 
 def convert_resolution(video, resolution):
@@ -68,9 +72,13 @@ def convert_resolution(video, resolution):
     cmd = 'ffmpeg -i "{}" -s hd{} -start_number 0 -hls_time 10 -hls_list_size 0 -f hls "{}"'.format(video.original_file.path, resolution, target_path)
 
     result = subprocess.run(cmd, capture_output=True, shell=True)
+
     if result.returncode != 0:
         video.status = 'error'
         video.save(update_fields=["status"])
+        return False
+
+    return True
 
 
 def create_thumbnail(video):
