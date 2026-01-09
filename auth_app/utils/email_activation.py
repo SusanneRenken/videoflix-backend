@@ -5,38 +5,45 @@ Utilities for user account activation via email.
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.tokens import default_token_generator
-from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 
 
-def send_activation_email(user):
-    """
-    Send an account activation email to the given user.
-    """
+def send_activation_email(user: User):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
-    activation_token = default_token_generator.make_token(user)
-    frontend_base_url = settings.CSRF_TRUSTED_ORIGINS[0]
+    token = default_token_generator.make_token(user)
 
-    activation_link = (
-        f"{frontend_base_url}/api/activate/{uid}/{activation_token}/"
-    )
+    backend_base_url = settings.BACKEND_BASE_URL
+    activation_link = f"{backend_base_url}/api/activate/{uid}/{token}/"
 
     subject = "Activate your Videoflix account"
-    message = (
+
+    text_content = (
         "Welcome to Videoflix!\n\n"
         "Please activate your account by clicking the link below:\n\n"
         f"{activation_link}\n\n"
         "If you did not register, you can ignore this email."
     )
 
-    send_mail(
-        subject,
-        message,
-        settings.DEFAULT_FROM_EMAIL,
-        [user.email],
-        fail_silently=False,
+    html_content = render_to_string(
+        "activation_email.html",
+        {
+            "user_name": user.username,
+            "activation_link": activation_link,
+        },
     )
+
+    email = EmailMultiAlternatives(
+        subject=subject,
+        body=text_content,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[user.email],
+    )
+
+    email.attach_alternative(html_content, "text/html")
+    email.send()
 
 
 def activate_user(uidb64, token):

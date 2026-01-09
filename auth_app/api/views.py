@@ -33,8 +33,9 @@ class RegistrationView(APIView):
     Creates an inactive user and returns an activation token
     for demonstration purposes.
     """
-
+    
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)
