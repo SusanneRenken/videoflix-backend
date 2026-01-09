@@ -3,19 +3,28 @@ from pathlib import Path
 from .models import Video
 import subprocess
 import shutil
+import logging
+
+logger = logging.getLogger(__name__)
 
 MEDIA_ROOT = Path(settings.MEDIA_ROOT)
 
-def convert_video(video_id):
-    success = True
+# feste, saubere ffmpeg-Standards
+RESOLUTIONS = {
+    "480": "854:480",
+    "720": "1280:720",
+    "1080": "1920:1080",
+}
 
+
+def convert_video(video_id):
     video = Video.objects.get(id=video_id)
 
-    video.status = 'processing'
+    video.status = "processing"
     video.save(update_fields=["status"])
 
     prepare_directories(video)
-    
+
     success = (
         convert_original_to_variants(video)
         and create_thumbnail(video)
@@ -24,10 +33,10 @@ def convert_video(video_id):
     if not success:
         delete_directories(video)
         return
-    
+
     move_original(video)
 
-    video.status = 'ready'
+    video.status = "ready"
     video.save(update_fields=["status"])
 
 
@@ -42,15 +51,14 @@ def prepare_directories(video):
 
 
 def convert_original_to_variants(video):
-    for resolution in ["480", "720", "1080"]:
-        success = convert_resolution(video, resolution)
-        if not success:
+    for resolution, scale in RESOLUTIONS.items():
+        if not convert_resolution(video, resolution, scale):
             return False
     return True
 
 
-def convert_resolution(video, resolution):
-    print(f"Converting to {resolution}p...")
+def convert_resolution(video, resolution, scale):
+    logger.info("Converting video %s to %sp", video.id, resolution)
 
     video_root = MEDIA_ROOT / "videos" / f"video_{video.id}"
     target_dir = video_root / "processed" / f"{resolution}p"
@@ -58,12 +66,22 @@ def convert_resolution(video, resolution):
 
     target_path = target_dir / "index.m3u8"
 
-    cmd = 'ffmpeg -i "{}" -s hd{} -start_number 0 -hls_time 10 -hls_list_size 0 -f hls "{}"'.format(video.original_file.path, resolution, target_path)
+    cmd = [
+        "ffmpeg",
+        "-i", video.original_file.path,
+        "-vf", f"scale={scale}",
+        "-start_number", "0",
+        "-hls_time", "10",
+        "-hls_list_size", "0",
+        "-f", "hls",
+        str(target_path),
+    ]
 
-    result = subprocess.run(cmd, capture_output=True, shell=True)
+    result = subprocess.run(cmd, capture_output=True)
 
     if result.returncode != 0:
-        video.status = 'error'
+        logger.error("FFmpeg failed for video %s (%sp)", video.id, resolution)
+        video.status = "error"
         video.save(update_fields=["status"])
         return False
 
@@ -71,16 +89,26 @@ def convert_resolution(video, resolution):
 
 
 def create_thumbnail(video):
-    print("Creating thumbnail...")
-    
+    logger.info("Creating thumbnail for video %s", video.id)
+
     thumbnail_root = MEDIA_ROOT / "videos" / f"video_{video.id}" / "thumbnails"
     thumbnail_root.mkdir(parents=True, exist_ok=True)
 
-    cmd = 'ffmpeg -i "{}" -vf thumbnail=n=100 -frames:v 1 -q:v 2 "{}"'.format(video.original_file.path, thumbnail_root / "thumbnail.jpg")
+    thumbnail_path = thumbnail_root / "thumbnail.jpg"
 
-    result = subprocess.run(cmd, capture_output=True, shell=True)
+    cmd = [
+        "ffmpeg",
+        "-i", video.original_file.path,
+        "-vf", "thumbnail=n=100",
+        "-frames:v", "1",
+        "-q:v", "2",
+        str(thumbnail_path),
+    ]
+
+    result = subprocess.run(cmd, capture_output=True)
 
     if result.returncode != 0:
+        logger.error("Thumbnail creation failed for video %s", video.id)
         video.status = "error"
         video.save(update_fields=["status"])
         return False
@@ -100,7 +128,7 @@ def delete_directories(video):
 def move_original(video):
     source_path = Path(video.original_file.path)
 
-    video_root = Path(settings.MEDIA_ROOT) / "videos" / f"video_{video.id}"
+    video_root = MEDIA_ROOT / "videos" / f"video_{video.id}"
     target_dir = video_root / "original"
     target_dir.mkdir(parents=True, exist_ok=True)
 
