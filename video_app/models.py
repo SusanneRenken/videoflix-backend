@@ -12,11 +12,7 @@ class Video(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     original_file = models.FileField(upload_to="videos/originals/")
-    thumbnail = models.ImageField(
-        upload_to="videos/thumbnails/",
-        blank=True,
-        null=True
-    )
+    thumbnail = models.ImageField(blank=True,null=True)
     category = models.CharField(max_length=100)
     status = models.CharField(max_length=15, choices=TYPE_CHOICES, default='pending')
 

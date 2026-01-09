@@ -22,5 +22,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("api/health/", health, name="health"),
     path('api/', include('auth_app.api.urls')),
+    path('api/', include('video_app.api.urls')),
     path('django-rq/', include('django_rq.urls')),
 ]
