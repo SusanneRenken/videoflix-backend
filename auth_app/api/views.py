@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth.tokens import default_token_generator
 
 from rest_framework import status
 from rest_framework.views import APIView
@@ -18,25 +19,28 @@ class RegistrationView(APIView):
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)
 
-        user = {}
         if serializer.is_valid():
             saved_account = serializer.save()
-            activation_token = send_activation_email(saved_account)
+
+            activation_token = default_token_generator.make_token(saved_account)
 
             user = {
-                'id': saved_account.pk,
-                'email': saved_account.email,
+                "id": saved_account.pk,
+                "email": saved_account.email,
             }
+
             return Response(
                 {
-                    'user': user,
-                    'token': activation_token,
-                }, status=status.HTTP_201_CREATED)
-        else:
-            return Response(
-                serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST,
+                    "user": user,
+                    "token": activation_token,
+                },
+                status=status.HTTP_201_CREATED,
             )
+
+        return Response(
+            serializer.errors,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class ActivateView(APIView):
@@ -121,20 +125,20 @@ class RefreshTokenView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         refresh_token = request.COOKIES.get("refresh_token")
 
-        if refresh_token is None:
+        if not refresh_token:
             return Response(
-                {"detail": "Refresh token not found."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"detail": "Refresh token not provided."},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         serializer = self.get_serializer(data={"refresh": refresh_token})
 
         try:
             serializer.is_valid(raise_exception=True)
-        except Exception:
+        except (InvalidToken, TokenError):
             return Response(
-                {"detail": "Refresh token invalid."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"detail": "Invalid or expired refresh token."},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         access_token = serializer.validated_data.get("access")

@@ -10,7 +10,7 @@ def send_activation_email(user):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     activation_token = default_token_generator.make_token(user)
 
-    activation_link = f"http://localhost:4200/api/activate/{uid}/{activation_token}/"
+    activation_link = (f"http://localhost:4200/api/activate/{uid}/{activation_token}/")
 
     subject = "Activate your Videoflix account"
     message = (
