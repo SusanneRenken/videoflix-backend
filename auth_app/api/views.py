@@ -1,19 +1,39 @@
+"""
+API views for authentication and account management.
+
+Handles user registration, activation, login, logout,
+token refresh, and password reset workflows.
+"""
+
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
 
 from rest_framework import status
-from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .serializers import RegistrationSerializer, LoginSerializer, PasswordResetSerializer, ConfirmPasswordSerializer
-from auth_app.utils.email_activation import send_activation_email, activate_user
-from auth_app.utils.reset_password import send_reset_email, reset_user_password
+from auth_app.utils.email_activation import activate_user
+from auth_app.utils.reset_password import reset_user_password, send_reset_email
+from .serializers import (
+    ConfirmPasswordSerializer,
+    LoginSerializer,
+    PasswordResetSerializer,
+    RegistrationSerializer,
+)
 
 
 class RegistrationView(APIView):
+    """
+    Register a new user account.
+
+    Creates an inactive user and returns an activation token
+    for demonstration purposes.
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -24,44 +44,47 @@ class RegistrationView(APIView):
 
             activation_token = default_token_generator.make_token(saved_account)
 
-            user = {
-                "id": saved_account.pk,
-                "email": saved_account.email,
-            }
-
             return Response(
                 {
-                    "user": user,
+                    "user": {
+                        "id": saved_account.pk,
+                        "email": saved_account.email,
+                    },
                     "token": activation_token,
                 },
                 status=status.HTTP_201_CREATED,
             )
 
-        return Response(
-            serializer.errors,
-            status=status.HTTP_400_BAD_REQUEST,
-        )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ActivateView(APIView):
+    """
+    Activate a user account using UID and token.
+    """
+
     permission_classes = [AllowAny]
 
     def get(self, request, uidb64, token):
         user = activate_user(uidb64, token)
 
-        if user is not None:
+        if user:
             return Response(
-                {'message': 'Account successfully activated.'},
-                status=status.HTTP_200_OK
+                {"message": "Account successfully activated."},
+                status=status.HTTP_200_OK,
             )
-        else:
-            return Response(
-                {'error': 'Activation failed. Please try again.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+        return Response(
+            {"error": "Activation failed. Please try again."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class LoginView(TokenObtainPairView):
+    """
+    Authenticate a user and set JWT tokens as HTTP-only cookies.
+    """
+
     serializer_class = LoginSerializer
 
     def post(self, request, *args, **kwargs):
@@ -80,7 +103,6 @@ class LoginView(TokenObtainPairView):
             secure=secure_flag,
             samesite="Lax",
         )
-
         response.set_cookie(
             key="refresh_token",
             value=refresh,
@@ -98,6 +120,10 @@ class LoginView(TokenObtainPairView):
 
 
 class LogoutView(APIView):
+    """
+    Log out a user by invalidating the refresh token
+    and deleting authentication cookies.
+    """
 
     def post(self, request, *args, **kwargs):
         refresh_cookie = request.COOKIES.get("refresh_token")
@@ -110,7 +136,12 @@ class LogoutView(APIView):
                 pass
 
         response = Response(
-            {"detail": "Logout successful! All tokens will be deleted. Refresh token is now invalid."},
+            {
+                "detail": (
+                    "Logout successful! All tokens will be deleted. "
+                    "Refresh token is now invalid."
+                )
+            },
             status=status.HTTP_200_OK,
         )
 
@@ -121,6 +152,9 @@ class LogoutView(APIView):
 
 
 class RefreshTokenView(TokenRefreshView):
+    """
+    Refresh the access token using the refresh token cookie.
+    """
 
     def post(self, request, *args, **kwargs):
         refresh_token = request.COOKIES.get("refresh_token")
@@ -144,10 +178,7 @@ class RefreshTokenView(TokenRefreshView):
         access_token = serializer.validated_data.get("access")
 
         response = Response(
-            {
-                "detail": "Token refreshed",
-                "access": access_token,
-            },
+            {"detail": "Token refreshed", "access": access_token},
             status=status.HTTP_200_OK,
         )
 
@@ -165,40 +196,46 @@ class RefreshTokenView(TokenRefreshView):
 
 
 class PasswordResetView(APIView):
+    """
+    Send a password reset email if the user exists.
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
-
         serializer = PasswordResetSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        email = serializer.validated_data["email"]
 
-        send_reset_email(email)
+        send_reset_email(serializer.validated_data["email"])
 
         return Response(
             {"detail": "An email has been sent to reset your password."},
-            status=status.HTTP_200_OK
+            status=status.HTTP_200_OK,
         )
 
 
 class ConfirmPasswordView(APIView):
+    """
+    Confirm a password reset using UID and token.
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request, uidb64, token):
-
         serializer = ConfirmPasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        new_password = serializer.validated_data["new_password"]
 
-        user = reset_user_password(uidb64, token, new_password)
+        user = reset_user_password(
+            uidb64, token, serializer.validated_data["new_password"]
+        )
 
-        if user is not None:
+        if user:
             return Response(
                 {"detail": "Password has been reset successfully."},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
-        else:
-            return Response(
-                {"error": "Password reset failed. Please try again."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+
+        return Response(
+            {"error": "Password reset failed. Please try again."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )

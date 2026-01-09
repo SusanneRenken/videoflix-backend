@@ -1,15 +1,24 @@
-from django.conf import settings
-from pathlib import Path
-from .models import Video
-import subprocess
-import shutil
+"""
+Background tasks for video processing.
+
+Handles directory preparation, HLS conversion via ffmpeg,
+thumbnail creation, cleanup on failure, and moving original files.
+"""
+
 import logging
+import shutil
+import subprocess
+from pathlib import Path
+
+from django.conf import settings
+
+from .models import Video
 
 logger = logging.getLogger(__name__)
 
 MEDIA_ROOT = Path(settings.MEDIA_ROOT)
 
-# feste, saubere ffmpeg-Standards
+# Standard ffmpeg scales for target resolutions
 RESOLUTIONS = {
     "480": "854:480",
     "720": "1280:720",
@@ -18,6 +27,9 @@ RESOLUTIONS = {
 
 
 def convert_video(video_id):
+    """
+    Convert a video to multiple HLS resolutions and generate a thumbnail.
+    """
     video = Video.objects.get(id=video_id)
 
     video.status = "processing"
@@ -25,10 +37,7 @@ def convert_video(video_id):
 
     prepare_directories(video)
 
-    success = (
-        convert_original_to_variants(video)
-        and create_thumbnail(video)
-    )
+    success = convert_original_to_variants(video) and create_thumbnail(video)
 
     if not success:
         delete_directories(video)
@@ -41,6 +50,9 @@ def convert_video(video_id):
 
 
 def prepare_directories(video):
+    """
+    Create all required directories for video processing.
+    """
     video_root = MEDIA_ROOT / "videos" / f"video_{video.id}"
 
     (video_root / "original").mkdir(parents=True, exist_ok=True)
@@ -51,6 +63,9 @@ def prepare_directories(video):
 
 
 def convert_original_to_variants(video):
+    """
+    Convert the original video into all configured resolutions.
+    """
     for resolution, scale in RESOLUTIONS.items():
         if not convert_resolution(video, resolution, scale):
             return False
@@ -58,6 +73,9 @@ def convert_original_to_variants(video):
 
 
 def convert_resolution(video, resolution, scale):
+    """
+    Convert a video to a single HLS resolution using ffmpeg.
+    """
     logger.info("Converting video %s to %sp", video.id, resolution)
 
     video_root = MEDIA_ROOT / "videos" / f"video_{video.id}"
@@ -68,12 +86,18 @@ def convert_resolution(video, resolution, scale):
 
     cmd = [
         "ffmpeg",
-        "-i", video.original_file.path,
-        "-vf", f"scale={scale}",
-        "-start_number", "0",
-        "-hls_time", "10",
-        "-hls_list_size", "0",
-        "-f", "hls",
+        "-i",
+        video.original_file.path,
+        "-vf",
+        f"scale={scale}",
+        "-start_number",
+        "0",
+        "-hls_time",
+        "10",
+        "-hls_list_size",
+        "0",
+        "-f",
+        "hls",
         str(target_path),
     ]
 
@@ -89,19 +113,28 @@ def convert_resolution(video, resolution, scale):
 
 
 def create_thumbnail(video):
+    """
+    Generate a thumbnail image from the video using ffmpeg.
+    """
     logger.info("Creating thumbnail for video %s", video.id)
 
-    thumbnail_root = MEDIA_ROOT / "videos" / f"video_{video.id}" / "thumbnails"
+    thumbnail_root = (
+        MEDIA_ROOT / "videos" / f"video_{video.id}" / "thumbnails"
+    )
     thumbnail_root.mkdir(parents=True, exist_ok=True)
 
     thumbnail_path = thumbnail_root / "thumbnail.jpg"
 
     cmd = [
         "ffmpeg",
-        "-i", video.original_file.path,
-        "-vf", "thumbnail=n=100",
-        "-frames:v", "1",
-        "-q:v", "2",
+        "-i",
+        video.original_file.path,
+        "-vf",
+        "thumbnail=n=100",
+        "-frames:v",
+        "1",
+        "-q:v",
+        "2",
         str(thumbnail_path),
     ]
 
@@ -113,19 +146,27 @@ def create_thumbnail(video):
         video.save(update_fields=["status"])
         return False
 
-    video.thumbnail.name = f"videos/video_{video.id}/thumbnails/thumbnail.jpg"
+    video.thumbnail.name = (
+        f"videos/video_{video.id}/thumbnails/thumbnail.jpg"
+    )
     video.save(update_fields=["thumbnail"])
 
     return True
 
 
 def delete_directories(video):
+    """
+    Remove all generated directories for a video.
+    """
     video_root = MEDIA_ROOT / "videos" / f"video_{video.id}"
     if video_root.exists():
         shutil.rmtree(video_root)
 
 
 def move_original(video):
+    """
+    Move the original uploaded video file into its final directory.
+    """
     source_path = Path(video.original_file.path)
 
     video_root = MEDIA_ROOT / "videos" / f"video_{video.id}"
@@ -137,5 +178,7 @@ def move_original(video):
     shutil.copy2(source_path, target_path)
     source_path.unlink()
 
-    video.original_file.name = f"videos/video_{video.id}/original/{source_path.name}"
+    video.original_file.name = (
+        f"videos/video_{video.id}/original/{source_path.name}"
+    )
     video.save(update_fields=["original_file"])

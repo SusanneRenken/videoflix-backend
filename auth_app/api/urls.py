@@ -1,5 +1,18 @@
+"""
+URL configuration for authentication-related API endpoints.
+"""
+
 from django.urls import path
-from .views import RegistrationView, ActivateView, LoginView, LogoutView, RefreshTokenView, PasswordResetView, ConfirmPasswordView
+
+from .views import (
+    ActivateView,
+    ConfirmPasswordView,
+    LoginView,
+    LogoutView,
+    PasswordResetView,
+    RefreshTokenView,
+    RegistrationView,
+)
 
 urlpatterns = [
     path("register/", RegistrationView.as_view(), name="register"),
@@ -8,5 +21,10 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("token/refresh/", RefreshTokenView.as_view(), name="token_refresh"),
     path("password_reset/", PasswordResetView.as_view(), name="password_reset"),
-    path("password_confirm/<uidb64>/<token>/", ConfirmPasswordView.as_view(), name="password_confirm"),
+    path(
+        "password_confirm/<uidb64>/<token>/",
+        ConfirmPasswordView.as_view(),
+        name="password_confirm",
+    ),
 ]
+
