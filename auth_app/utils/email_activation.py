@@ -9,8 +9,9 @@ from django.contrib.auth.models import User
 def send_activation_email(user):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     activation_token = default_token_generator.make_token(user)
+    frontend_base_url = settings.CSRF_TRUSTED_ORIGINS[0]
 
-    activation_link = (f"http://localhost:4200/api/activate/{uid}/{activation_token}/")
+    activation_link = (f"{frontend_base_url}/api/activate/{uid}/{activation_token}/")
 
     subject = "Activate your Videoflix account"
     message = (
