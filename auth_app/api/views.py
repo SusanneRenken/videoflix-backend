@@ -43,7 +43,6 @@ class RegistrationView(APIView):
         try:
             with transaction.atomic():
                 user = serializer.save()
-                user.save()
                 token = default_token_generator.make_token(user)
 
         except Exception:
