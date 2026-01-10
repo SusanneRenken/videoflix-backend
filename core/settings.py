@@ -67,8 +67,7 @@ CORS_ALLOWED_ORIGINS = [
 # Allow cookies/credentials to be included in cross-site requests
 CORS_ALLOW_CREDENTIALS = True
 
-# Base URL for backend API (used to build activation/reset links)
-BACKEND_BASE_URL = os.environ.get("BACKEND_BASE_URL", "http://127.0.0.1:8000")
+FRONTEND_BASE_URL = "http://localhost:5500/pages/auth"
 
 ROOT_URLCONF = 'core.urls'
 
