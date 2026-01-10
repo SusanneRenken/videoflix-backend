@@ -7,6 +7,7 @@ token refresh, and password reset workflows.
 
 from django.conf import settings
 from django.contrib.auth.tokens import default_token_generator
+from django.db import transaction
 
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -27,36 +28,40 @@ from .serializers import (
 
 
 class RegistrationView(APIView):
-    """
-    Register a new user account.
-
-    Creates an inactive user and returns an activation token
-    for demonstration purposes.
-    """
-    
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)
 
-        if serializer.is_valid():
-            saved_account = serializer.save()
-
-            activation_token = default_token_generator.make_token(saved_account)
-
+        if not serializer.is_valid():
             return Response(
-                {
-                    "user": {
-                        "id": saved_account.pk,
-                        "email": saved_account.email,
-                    },
-                    "token": activation_token,
-                },
-                status=status.HTTP_201_CREATED,
+                {"detail": "Please check your entries and try again."},
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            with transaction.atomic():
+                user = serializer.save()
+                user.save()
+                token = default_token_generator.make_token(user)
+
+        except Exception:
+            return Response(
+                {"detail": "Registration failed. Please try again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "user": {
+                    "id": user.pk,
+                    "email": user.email,
+                },
+                "token": token,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class ActivateView(APIView):

@@ -9,13 +9,6 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 
 class RegistrationSerializer(serializers.ModelSerializer):
-    """
-    Serializer for user registration.
-
-    Ensures email uniqueness, password confirmation,
-    and creates an inactive user account.
-    """
-
     confirmed_password = serializers.CharField(write_only=True)
 
     class Meta:
@@ -26,35 +19,29 @@ class RegistrationSerializer(serializers.ModelSerializer):
             "email": {"required": True},
         }
 
-    def validate_confirmed_password(self, value):
-        password = self.initial_data.get("password")
-        if password and value and password != value:
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
             raise serializers.ValidationError(
                 "Please check your entries and try again."
             )
         return value
 
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+    def validate(self, attrs):
+        if attrs["password"] != attrs["confirmed_password"]:
             raise serializers.ValidationError(
-                "A user with that email already exists."
+                "Please check your entries and try again."
             )
-        return value
+        return attrs
 
     def create(self, validated_data):
         validated_data.pop("confirmed_password")
 
-        email = validated_data["email"]
-        password = validated_data["password"]
-
         user = User(
-            username=email,
-            email=email,
+            username=validated_data["email"],
+            email=validated_data["email"],
             is_active=False,
         )
-        user.set_password(password)
-        user.save()
-
+        user.set_password(validated_data["password"])
         return user
 
 
