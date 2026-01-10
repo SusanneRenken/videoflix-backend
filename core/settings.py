@@ -204,6 +204,8 @@ EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL") == "True"
 
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL")
 
+PASSWORD_RESET_TIMEOUT = 60 * 60 * 24
+
 # JWT settings
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
