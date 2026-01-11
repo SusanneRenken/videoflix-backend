@@ -8,6 +8,7 @@ has been successfully created.
 import logging
 
 import django_rq
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -27,5 +28,8 @@ def video_post_save(sender, instance, created, **kwargs):
 
     logger.info("---> Video '%s' created. Enqueuing processing task.", instance.title)
 
-    queue = django_rq.get_queue("default")
-    queue.enqueue(convert_video, instance.id)
+    def enqueue_job():
+        queue = django_rq.get_queue("default")
+        queue.enqueue(convert_video, instance.id)
+
+    transaction.on_commit(enqueue_job)
