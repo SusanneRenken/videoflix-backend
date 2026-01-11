@@ -29,7 +29,6 @@ from .serializers import (
 
 class RegistrationView(APIView):
     permission_classes = [AllowAny]
-    authentication_classes = []
 
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)

@@ -76,7 +76,7 @@ def convert_resolution(video, resolution, scale):
     """
     Convert a video to a single HLS resolution using ffmpeg.
     """
-    logger.info("Converting video %s to %sp", video.id, resolution)
+    logger.info("---> Converting video %s to %sp", video.id, resolution)
 
     video_root = MEDIA_ROOT / "videos" / f"video_{video.id}"
     target_dir = video_root / "processed" / f"{resolution}p"
@@ -116,7 +116,7 @@ def create_thumbnail(video):
     """
     Generate a thumbnail image from the video using ffmpeg.
     """
-    logger.info("Creating thumbnail for video %s", video.id)
+    logger.info("---> Creating thumbnail for video %s", video.id)
 
     thumbnail_root = (
         MEDIA_ROOT / "videos" / f"video_{video.id}" / "thumbnails"

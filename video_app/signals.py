@@ -25,7 +25,7 @@ def video_post_save(sender, instance, created, **kwargs):
     if not created:
         return
 
-    logger.info("Video '%s' created. Enqueuing processing task.", instance.title)
+    logger.info("---> Video '%s' created. Enqueuing processing task.", instance.title)
 
     queue = django_rq.get_queue("default")
     queue.enqueue(convert_video, instance.id)

@@ -67,7 +67,7 @@ CORS_ALLOWED_ORIGINS = [
 # Allow cookies/credentials to be included in cross-site requests
 CORS_ALLOW_CREDENTIALS = True
 
-FRONTEND_BASE_URL = "http://localhost:5500/pages/auth"
+FRONTEND_BASE_URL = "http://127.0.0.1:5500/pages/auth"
 
 ROOT_URLCONF = 'core.urls'
 
@@ -182,11 +182,11 @@ LOGGING = {
 
 # Django REST Framework settings
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',
-    ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'auth_app.api.authentication.CookieJWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
     ],
 }
 
