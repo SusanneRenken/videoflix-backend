@@ -1,6 +1,6 @@
 # Videoflix – Backend (Django REST Framework)
 
-ideoflix is a Netflix-like video streaming platform.
+Videoflix is a Netflix-like video streaming platform.
 This backend provides authentication, video upload & processing, and HLS video streaming using FFmpeg and background workers.
 
 ---
